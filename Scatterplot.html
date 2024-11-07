@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scatter Plot</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <svg width="800" height="400"></svg>
+
+    <script>
+
+        // Load the CSV data
+        d3.csv("personal_transactions.csv").then(data => {
+
+            // Parse date and amount, and filter for 'credit' transactions
+            data.forEach(d => {
+                d.Date = d3.timeParse("%m-%d-%Y")(d.Date);
+                d.Amount = +d.Amount;
+            });
+
+            const creditData = data.filter(d => d["Transaction Type"] === "credit" & d['Amount']<1500);
+
+            // Set up chart dimensions and margins
+            const margin = { top: 100, right: 30, bottom: 50, left: 50 },
+                  width = 800 - margin.left - margin.right,
+                  height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select("svg")
+                          .attr("width", width + margin.left + margin.right)
+                          .attr("height", height + margin.top + margin.bottom)
+                          .append("g")
+                          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Set up scales
+            const xScale = d3.scaleTime()
+                             .domain(d3.extent(creditData, d => d.Date))
+                             .range([0, width]);
+
+            const yScale = d3.scaleLinear()
+                             .domain([0, d3.max(creditData, d => d.Amount)])
+                             .range([height, 0]);
+
+            // Add x-axis
+            svg.append("g")
+               .attr("transform", `translate(0, ${height})`)
+               .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%b %Y"))) // Format as Month Year
+               .selectAll("text")
+               .attr("transform", "rotate(-45)")
+               .style("text-anchor", "end");
+
+            // Add y-axis
+            svg.append("g")
+               .call(d3.axisLeft(yScale));
+
+            // Add scatter plot points
+            svg.selectAll("circle")
+               .data(creditData)
+               .enter()
+               .append("circle")
+               .attr("cx", d => xScale(d.Date))
+               .attr("cy", d => yScale(d.Amount))
+               .attr("r", 4)
+               .attr("fill", "steelblue");
+            
+            // Add a title to the graph
+            svg.append("text")
+                .attr("x", width/2)
+                .attr("y", -50)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("font-weight", "bold")
+                .text("Credits overtime");
+
+        }).catch(error => {
+            console.error("Error loading the CSV file:", error);
+        });
+    </script>
+</body>
+</html>

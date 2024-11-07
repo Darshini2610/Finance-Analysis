@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Bar Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+
+    <svg></svg>
+
+    <script>
+
+        // Define the dimensions and margin
+        const margin = { top: 50, right: 30, bottom: 40, left: 150 };
+        const width = 500 - margin.left - margin.right;
+        const height = 300 - margin.top - margin.bottom;
+        const barHeight = 30;
+
+        // Create the SVG element with specified width and height
+        const svg = d3.select("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        // Load the CSV data
+        d3.csv("personal_transactions.csv").then(data => {
+
+            // Filter data for 'debit' transactions and parse the Amount as an integer
+            const debitData = data.filter(d => d["Transaction Type"] === "debit")
+                                .map(d => ({ ...d, Amount: +d.Amount }));
+
+            // Calculate the total amount for each category
+            const categoryTotals = d3.rollups(
+                debitData,
+                v => d3.sum(v, d => d.Amount),
+                d => d.Category
+            );
+
+            // Sort categories by total amount in descending order and select the top 5
+            const top5Spends = categoryTotals.sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            // Convert to a more readable format if needed
+            const top5SpendsFormatted = top5Spends.map(([category, amount]) => ({ category, amount }));
+
+            console.log(top5SpendsFormatted);
+
+
+
+            // Define x-scale for subscriber count
+            const x = d3.scaleLinear()
+                        .domain([0, d3.max(top5SpendsFormatted, d => d.amount)])
+                        .range([0, width]);
+
+            // Define y-scale for course names
+            const y = d3.scaleBand()
+                        .domain(top5SpendsFormatted.map(d => d.category))
+                        .range([0, top5SpendsFormatted.length * barHeight])
+                        .padding(0.1);
+
+            // Adjust SVG height based on data length
+            d3.select("svg").attr("height", top5SpendsFormatted.length * barHeight + margin.top + margin.bottom);
+
+            // Add the bars
+            svg.selectAll("rect")
+               .data(top5SpendsFormatted)
+               .enter()
+               .append("rect")
+               .attr("x", 0)
+               .attr("y", d => y(d.category))
+               .attr("width", d => x(d.amount))
+               .attr("height", y.bandwidth())
+               .attr("fill", "steelblue");
+
+            // Add a title to the graph
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("font-weight", "bold")
+                .text("Most Amount spent categories");
+
+            // Add x-axis
+            svg.append("g")
+               .attr("transform", `translate(0, ${top5SpendsFormatted.length * barHeight})`)
+               .call(d3.axisBottom(x).ticks(5))
+               .selectAll("text")
+               .style("font-size", "12px");
+
+            // Add y-axis with course names
+            svg.append("g")
+               .call(d3.axisLeft(y))
+               .selectAll("text")
+               .style("font-size", "12px");
+               
+
+        }).catch(error => {
+            console.error("Error loading the CSV file:", error);
+        });
+    </script>
+
+</body>
+
+</html>

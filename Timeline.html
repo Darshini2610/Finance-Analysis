@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Timeline Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <svg width="800" height="400"></svg>
+
+    <script>
+
+        // Load the CSV data
+        d3.csv("personal_transactions.csv").then(data => {
+
+            // Filter data for 'debit' transactions and parse the Amount as an integer
+            const debitData = data.filter(d => d["Transaction Type"] === "debit")
+                                .map(d => ({ ...d, Amount: +d.Amount }));
+            
+            // Parse date with mm-dd-yyyy format and convert Amount to a number
+            debitData.forEach(d => {
+                d.Date = d3.timeParse("%m-%d-%Y")(d.Date);
+                d.Amount = +d.Amount;
+            });
+
+            // Aggregate data by year-month, summing amounts for each month
+            const monthlyData = Array.from(
+                d3.group(debitData, d => d3.timeFormat("%Y-%m")(d.Date)),
+                ([key, values]) => ({
+                    Date: d3.timeParse("%Y-%m")(key), // Convert key back to date
+                    Amount: Math.round(d3.sum(values, d => d.Amount)) // Sum the amount for that month
+                })
+            );
+
+            // Set up chart dimensions and margins
+            const margin = { top: 100, right: 30, bottom: 100, left: 50 },
+                  width = 800 - margin.left - margin.right,
+                  height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select("svg")
+                          .attr("width", width + margin.left + margin.right)
+                          .attr("height", height + margin.top + margin.bottom)
+                          .append("g")
+                          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Set up scales
+            const xScale = d3.scaleTime()
+                             .domain(d3.extent(monthlyData, d => d.Date))
+                             .range([0, width]);
+
+            const yScale = d3.scaleLinear()
+                             .domain([0, d3.max(monthlyData, d => d.Amount)])
+                             .range([height, 0]);
+
+            // Add x-axis
+            svg.append("g")
+               .attr("transform", `translate(0, ${height})`)
+               .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%b %Y"))) // Format as Month Year
+               .selectAll("text")
+               .attr("transform", "rotate(-45)")
+               .style("text-anchor", "end");
+
+            // Add y-axis
+            svg.append("g")
+               .call(d3.axisLeft(yScale));
+
+            // Add line path
+            const line = d3.line()
+                           .x(d => xScale(d.Date))
+                           .y(d => yScale(d.Amount));
+
+            svg.append("path")
+               .datum(monthlyData)
+               .attr("fill", "none")
+               .attr("stroke", "steelblue")
+               .attr("stroke-width", 1.5)
+               .attr("d", line);
+
+            // Add points for each month
+            svg.selectAll("circle")
+               .data(monthlyData)
+               .enter()
+               .append("circle")
+               .attr("cx", d => xScale(d.Date))
+               .attr("cy", d => yScale(d.Amount))
+               .attr("r", 4)
+               .attr("fill", "steelblue");
+
+            // Add labels for each point
+            svg.selectAll("text.label")
+               .data(monthlyData)
+               .enter()
+               .append("text")
+               .attr("class", "label")
+               .attr("x", d => xScale(d.Date))
+               .attr("y", d => yScale(d.Amount) - 10)
+               .attr("text-anchor", "middle")
+               .style("font-size", "10px")
+               .text(d => d.Amount);
+            
+            // Add a title to the graph
+            svg.append("text")
+                .attr("x", width/2)
+                .attr("y", -50)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("font-weight", "bold")
+                .text("Expenses per month");
+
+        }).catch(error => {
+            console.error("Error loading the CSV file:", error);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Pie Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+
+    <svg width="400" height="400"></svg>
+
+    <script>
+
+        // Load the CSV data
+        d3.csv("personal_transactions.csv").then(data => {
+            
+            // Calculate totals and round off the amounts
+            const debitTotal = Math.round(d3.sum(data.filter(d => d["Transaction Type"] === "debit"), d => +d.Amount));
+            const creditTotal = Math.round(d3.sum(data.filter(d => d["Transaction Type"] === "credit"), d => +d.Amount));
+
+            // Data for the pie chart
+            const pieData = [
+                { label: "Debit", value: debitTotal },
+                { label: "Credit", value: creditTotal }
+            ];
+
+            // Set up the pie chart dimensions and radius
+            const width = 300, height = 500, radius = Math.min(width, height) / 2;
+            const svg = d3.select("svg")
+                          .attr("width", width)
+                          .attr("height", height)
+                          .append("g")
+                          .attr("transform", `translate(${width / 2}, ${height / 2 })`);
+
+            // Generate the pie and arcs
+            const pie = d3.pie().value(d => d.value);
+            const arc = d3.arc().innerRadius(0).outerRadius(radius);
+
+            // Create color scale
+            const color = d3.scaleOrdinal()
+                            .domain(pieData.map(d => d.label))
+                            .range(["#4daf4a", "#377eb8"]);
+            
+            // Add pie chart arcs
+            svg.selectAll("path")
+               .data(pie(pieData))
+               .enter()
+               .append("path")
+               .attr("d", arc)
+               .attr("fill", d => color(d.data.label))
+               .attr("stroke", "white")
+               .style("stroke-width", "2px");
+
+            // Add labels to each slice
+            svg.selectAll("text")
+               .data(pie(pieData))
+               .enter()
+               .append("text")
+               .text(d => `${d.data.label}: ${d.data.value}`)
+               .attr("transform", d => `translate(${arc.centroid(d)})`)
+               .style("text-anchor", "middle")
+               .style("font-size", "12px");
+            
+            // Add a title to the graph
+            svg.append("text")
+                .attr("x", -1)
+                .attr("y", -200)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("font-weight", "bold")
+                .text("Credit vs Debit");
+
+        }).catch(error => {
+            console.error("Error loading the CSV file:", error);
+        });
+    </script>
+
+</body>
+
+</html>
